@@ -1,0 +1,122 @@
+#!/bin/sh
+
+#################
+# PRE-PROCESSES #
+#################
+
+mkdir -p $HOME/.cache/hentidl $HOME/.cache/hentidl/downloads
+cachedir=$HOME/.cache/hentidl
+ddir=$cachedir/downloads
+cp assests/ssr $ddir/ssr
+version=0.1
+
+#############
+# FUNCTIONS #
+#############
+
+search () {
+	query=$1
+	curl -s "https://nhentai.net/search/?q=$query" > $cachedir/tmp.html
+	url="https://nhentai.net$(cat $cachedir/tmp.html | grep -Eo "/g/[0-9]*/" | fzf)"
+	curl -s $url > $cachedir/file.html
+	downloader
+}
+
+
+downloader () {
+	lasturl=$(cat $cachedir/file.html | grep -Eo "/g/[0-9]*/[0-9]*/" | tail -n 1)
+	
+	if [ -z $lasturl ]; then
+		exit
+	fi
+
+	lp=$(echo $lasturl | cut -d'/' -f 4)
+	base_code=$(cat $cachedir/file.html | grep -Eo "galleries/[0-9]*/"| cut -d'/' -f 2 | head -n 1)
+	i=1
+
+	while [ $i -lt $lp ]
+	do
+		echo "https://i5.nhentai.net/galleries/$base_code/$i.jpg" >> $cachedir/files.txt
+		i=`expr $i + 1`
+	done
+
+	if [ -z $cachedir/files.txt ]; then
+		exit
+	fi
+
+	aria2c --input-file $cachedir/files.txt -d $ddir
+	rm $cachedir/files.txt
+}
+
+ssr () {
+	seq=$1
+	cd $ddir/
+	chmod 766 $ddir/ssr
+	$ddir/ssr $seq
+	rm ssr
+}
+
+
+tag_search () {
+	tag=$(cat assests/tags.txt | fzf)
+	if [ -z $tag ]; then
+		echo "[-] Tag is blank!"
+		exit
+	fi
+	
+	curl -s "https://nhentai.net/tag/$tag/" > $cachedir/tmp.html
+	url="https://nhentai.net$(cat $cachedir/tmp.html | grep -Eo "/g/[0-9]*/" | fzf)"
+	curl -s $url > $cachedir/file.html 
+	downloader
+}
+
+rm_cache () {
+	rm -rf $cachedir
+}
+
+
+################
+# MAIN PROGRAM #
+################
+
+if [ -z $1 ]; then
+	echo "\e[1;31m[-]\e[0m Syntax Error"
+	echo "\n\e[1;34mhelp-text: \e[1;36m"
+	echo "\t./hentidl -t            [ tag_search      ]"
+	echo "\t./hentidl -d <code>     [ download        ]"
+	echo "\t./hentidl -s <query>    [ search          ]"
+	echo "\t./hentidl -r            [ remove_cachedir ]"
+	echo "\e[0m"
+	exit
+else
+	if [ $1 = "-t" ]; then
+		tag_search
+	elif [ $1 = "-d" ]; then
+		if [ -z $2 ]; then
+			read -p "Enter Code: " code
+		else
+			code=$2
+		fi
+		curl -s "https://nhentai.net/g/$code/" > $cachedir/file.html
+		downloader
+	elif [ $1 = "-s" ]; then
+		if [ -z $2 ]; then
+			read -p "Search: "  query
+		else
+			query=$2
+		fi
+		search $query
+	elif [ $1 = "-r" ]; then
+		rm_cache
+		exit
+	elif [ $1 = "-ssr" ]; then
+		ssr
+		exit
+	else
+		echo "\e[1;31m[-]\e[0m Syntax Error: "
+		echo "\ttry: ./hentidl -h"
+		exit
+	fi
+fi
+
+# EOF
