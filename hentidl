@@ -7,8 +7,7 @@
 mkdir -p $HOME/.cache/hentidl $HOME/.cache/hentidl/downloads
 cachedir=$HOME/.cache/hentidl
 ddir=$cachedir/downloads
-cp assests/ssr $ddir/ssr
-version=0.1
+version="0.2-beta"
 
 #############
 # FUNCTIONS #
@@ -27,7 +26,7 @@ downloader () {
 	lasturl=$(cat $cachedir/file.html | grep -Eo "/g/[0-9]*/[0-9]*/" | tail -n 1)
 	
 	if [ -z $lasturl ]; then
-		exit
+		exit 1
 	fi
 
 	lp=$(echo $lasturl | cut -d'/' -f 4)
@@ -41,7 +40,7 @@ downloader () {
 	done
 
 	if [ -z $cachedir/files.txt ]; then
-		exit
+		exit 1
 	fi
 
 	aria2c --input-file $cachedir/files.txt -d $ddir
@@ -61,7 +60,7 @@ tag_search () {
 	tag=$(cat assests/tags.txt | fzf)
 	if [ -z $tag ]; then
 		echo "[-] Tag is blank!"
-		exit
+		exit 1
 	fi
 	
 	curl -s "https://nhentai.net/tag/$tag/" > $cachedir/tmp.html
@@ -75,19 +74,25 @@ rm_cache () {
 }
 
 
-################
-# MAIN PROGRAM #
-################
-
-if [ -z $1 ]; then
-	echo "\e[1;31m[-]\e[0m Syntax Error"
+help_text () {
+	echo "\e[1;31m[+]\e[0m hentidl-$version"
 	echo "\n\e[1;34mhelp-text: \e[1;36m"
 	echo "\t./hentidl -t            [ tag_search      ]"
 	echo "\t./hentidl -d <code>     [ download        ]"
 	echo "\t./hentidl -s <query>    [ search          ]"
 	echo "\t./hentidl -r            [ remove_cachedir ]"
+	echo "\t./hentidl -h            [ help_text       ]"
+	echo "\t./hentidl --version     [ hentidl_version ]"
 	echo "\e[0m"
-	exit
+}
+
+################
+# MAIN PROGRAM #
+################
+
+if [ -z $1 ] || [ $1 = "-h" ]; then
+	help_text
+	exit 0
 else
 	if [ $1 = "-t" ]; then
 		tag_search
@@ -108,14 +113,18 @@ else
 		search $query
 	elif [ $1 = "-r" ]; then
 		rm_cache
-		exit
+		exit 0
+	elif [ $1 = "--version" ]; then
+		echo "hentidl by hackerW1"
+		echo "\tVersion: hentidl-$version"
+		exit 0
 	elif [ $1 = "-ssr" ]; then
 		ssr
-		exit
+		exit 0
 	else
 		echo "\e[1;31m[-]\e[0m Syntax Error: "
 		echo "\ttry: ./hentidl -h"
-		exit
+		exit 1
 	fi
 fi
 
